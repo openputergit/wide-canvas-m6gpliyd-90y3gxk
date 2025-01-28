@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamPrep AI Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+        .quiz-option:hover {
+            transform: translateY(-2px);
+            transition: transform 0.2s;
+        }
+    </style>
+</head>
+<body class="font-['Poppins'] bg-gray-50" x-data="appState()">
+    <!-- Navigation remains same as previous -->
+    <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <!-- Previous nav content -->
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-8 px-4">
+        <!-- Quiz Section -->
+        <div x-show="currentView === 'quiz'" x-cloak>
+            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 my-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800" x-text="'Question ' + (currentQuestionIndex + 1) + ' of ' + questions.length"></h2>
+                    <div class="text-lg font-semibold text-blue-600">
+                        Time: <span x-text="formatTime(timer)"></span>
+                    </div>
+                </div>
+                
+                <!-- Question Display -->
+                <div class="mb-8">
+                    <p class="text-lg text-gray-700 mb-6" x-text="currentQuestion.question"></p>
+                    <div class="grid gap-4">
+                        <template x-for="(option, index) in currentQuestion.options" :key="index">
+                            <button 
+                                class="quiz-option p-4 border rounded-lg text-left hover:bg-blue-50 transition-colors duration-200"
+                                :class="{'bg-green-100 border-green-500': showResults && index === currentQuestion.correctAnswer,
+                                        'bg-red-100 border-red-500': showResults && selectedAnswer === index && index !== currentQuestion.correctAnswer}"
+                                @click="selectAnswer(index)"
+                                :disabled="showResults"
+                                x-text="option">
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="flex justify-between mt-6">
+                    <button 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        @click="previousQuestion"
+                        :disabled="currentQuestionIndex === 0">
+                        Previous
+                    </button>
+                    <button 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        @click="nextQuestion"
+                        x-text="currentQuestionIndex === questions.length - 1 ? 'Finish' : 'Next'">
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div x-show="currentView === 'results'" x-cloak>
+            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 my-8">
+                <h2 class="text-3xl font-bold text-center mb-6">Quiz Results</h2>
+                <div class="text-center mb-8">
+                    <p class="text-2xl mb-4">Your Score: <span class="text-blue-600" x-text="score + '/' + questions.length"></span></p>
+                    <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
+                        <div class="bg-blue-600 h-4 rounded-full" :style="`width: ${(score/questions.length)*100}%`"></div>
+                    </div>
+                </div>
+                <div class="flex justify-center space-x-4">
+                    <button 
+                        @click="restartQuiz"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        Try Again
+                    </button>
+                    <button 
+                        @click="viewAnswers"
+                        class="px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50">
+                        Review Answers
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function appState() {
+            return {
+                currentView: 'quiz',
+                questions: [],
+                currentQuestionIndex: 0,
+                score: 0,
+                selectedAnswer: null,
+                showResults: false,
+                timer: 1800, // 30 minutes in seconds
+                timerInterval: null,
+
+                async init() {
+                    await this.generateQuestions();
+                    this.startTimer();
+                },
+
+                async generateQuestions() {
+                    try {
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/ai', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer MFrhPyNkikhB1ASqhlftVzWtCnk1',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{
+                                    role: "user",
+                                    content: [{
+                                        type: "text",
+                                        text: "Generate 100 multiple choice questions for competitive exams covering general knowledge, aptitude, and reasoning."
+                                    }]
+                                }]
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.questions = this.parseQuestionsFromAI(data.message);
+                        } else {
+                            console.error('Failed to fetch questions');
+                            // Fallback to sample questions if API fails
+                            this.questions = this.getSampleQuestions();
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.questions = this.getSampleQuestions();
+                    }
+                },
+
+                parseQuestionsFromAI(aiResponse) {
+                    // Implementation to parse AI response into structured questions
+                    // This is a simplified version
+                    return this.getSampleQuestions();
+                },
+
+                getSampleQuestions() {
+                    return [
+                        {
+                            question: "What is the capital of France?",
+                            options: ["London", "Berlin", "Paris", "Madrid"],
+                            correctAnswer: 2
+                        },
+                        // Add more sample questions
+                    ];
+                },
+
+                get currentQuestion() {
+                    return this.questions[this.currentQuestionIndex] || {};
+                },
+
+                selectAnswer(index) {
+                    if (!this.showResults) {
+                        this.selectedAnswer = index;
+                        this.showResults = true;
+                        if (index === this.currentQuestion.correctAnswer) {
+                            this.score++;
+                        }
+                    }
+                },
+
+                nextQuestion() {
+                    if (this.currentQuestionIndex < this.questions.length - 1) {
+                        this.currentQuestionIndex++;
+                        this.selectedAnswer = null;
+                        this.showResults = false;
+                    } else {
+                        this.finishQuiz();
+                    }
+                },
+
+                previousQuestion() {
+                    if (this.currentQuestionIndex > 0) {
+                        this.currentQuestionIndex--;
+                        this.selectedAnswer = null;
+                        this.showResults = false;
+                    }
+                },
+
+                finishQuiz() {
+                    this.currentView = 'results';
+                    clearInterval(this.timerInterval);
+                },
+
+                restartQuiz() {
+                    this.currentView = 'quiz';
+                    this.currentQuestionIndex = 0;
+                    this.score = 0;
+                    this.selectedAnswer = null;
+                    this.showResults = false;
+                    this.timer = 1800;
+                    this.startTimer();
+                },
+
+                startTimer() {
+                    this.timerInterval = setInterval(() => {
+                        if (this.timer > 0) {
+                            this.timer--;
+                        } else {
+                            this.finishQuiz();
+                        }
+                    }, 1000);
+                },
+
+                formatTime(seconds) {
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+                },
+
+                viewAnswers() {
+                    this.currentView = 'quiz';
+                    this.currentQuestionIndex = 0;
+                    this.showResults = true;
+                }
+            }
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
